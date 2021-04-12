@@ -1,0 +1,21 @@
+utiliy function
+
+was going to do cost but we dont have the data for that. the next thought was to use mass because in space more mass equal most cost both launchign and moving due to inertia having to do with mass. However, we also dont have a good data set for that
+
+https://celestrak.com/columns/v04n03/
+The 11th field of a tle is the B* field which is an SGP4-type drag coefficient.
+In aerodynamic theory, every object has a ballistic coefficient, B, that is the product of its coefficient of drag, CD, and its cross-sectional area, A, divided by its mass, m.
+
+B = CD A/m
+
+The ballistic coefficient represents how susceptible an object is to drag—the higher the number, the more susceptible. B* is an adjusted value of B using the reference value of atmospheric density, ρo.
+
+B* = B ρo/2
+
+B* has units of (earth radii)-1.
+
+We should be able to use this to develope a proxy for an approximate mass but we do need to make some assumptions. Since we are looking at collisions it is safe to assume the atmospheric density is the same for any colliding satellites so we will ignore it since it would just scale our mass proxy. 
+However to be able to approximate mass we also need to assume every satellite was morphed into the same shape which we will just assume is a 1x1x1m cube.
+will have the same drag coefficient and cross sectional area If we do that then we know that that as a satellites mass increases it bstar will decrease. We can then see that 
+
+m_proxy = CD * A / (2 * B*)
