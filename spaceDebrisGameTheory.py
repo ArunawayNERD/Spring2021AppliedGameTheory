@@ -1,6 +1,8 @@
 import json
 import numpy as np
 import time
+import gambit
+import random
 
 
 def getTleApproxMass(tle):
@@ -121,7 +123,7 @@ def SpaceDebrisGameTheory(
     massApproxByTle = {noradId: getTleApproxMass(tleSet[noradId]) for noradId in tleKeys}
 
     # Get the removal combos to try
-    totalCombos = (maxNumberPossibleToRemove + 1) ** len(countiesToExamine)  # +1 because 1 is valid
+    totalCombos = (maxNumberPossibleToRemove + 1) ** len(countiesToExamine)  # +1 because 0 is valid
 
     combos = []
     for i in range(totalCombos):
@@ -130,28 +132,58 @@ def SpaceDebrisGameTheory(
 
     startTime = time.time()
 
+    game = gambit.Game.new_table([maxNumberPossibleToRemove + 1] * len(countiesToExamine))
+
+    # Name the players in our game to the country codes
+    for i in range(len(countiesToExamine)):
+        game.players[i].label = countiesToExamine[i]
+
+    #Now lets loop through all the move combos and add the untility values to the game
+    value = 0
     for combo in combos:
         removedIds = []
 
-        numberToRemovePerCountry = list(combo)
+        numberToRemovePerCountry = [int(i) for i in list(combo)]
         print(numberToRemovePerCountry)
 
         for countryIndex in range(len(numberToRemovePerCountry)):
             countryCode = countiesToExamine[countryIndex]
-            numToRemove = int(numberToRemovePerCountry[countryIndex])
-
+            numToRemove = numberToRemovePerCountry[countryIndex]
+            # print(numToRemove)
             countrysIds = countryMapping[countryCode]
 
-            removed = getIdsToRemove(
-                countrysIds, numToRemove, removedIds, collisionSet, tleKeys, tleSet, massApproxByTle
-            )
+            # removed = getIdsToRemove(
+            #     countrysIds, numToRemove, removedIds, collisionSet, tleKeys, tleSet, massApproxByTle
+            # )
+            removed = []
             removedIds.extend(removed)
 
         # Now that we have determined the ids to removed lets calclate the actual utilities
-        for countryCode in countiesToExamine:
-            countrysIds = countryMapping[countryCode]
-            utility = calculateUtility(countrysIds, removedIds, collisionSet, tleKeys, tleSet, massApproxByTle, 1)
-            print(utility)
+        for countryIndex in range(len(numberToRemovePerCountry)):
+        # for countryCode in countiesToExamine:
+            countrysIds = countryMapping[countiesToExamine[countryIndex]]
+            # utility = calculateUtility(countrysIds, removedIds, collisionSet, tleKeys, tleSet, massApproxByTle, 1)
+            game[numberToRemovePerCountry][countryIndex] = value
+            value = value +1
+            utility = 1
+            # print(utility)
+
+    
+    nashEqulibs = gambit.nash.enumpure_solve(game)
+    print(len(nashEqulibs[0]))
+    playerStrats = np.array_split(np.array(nashEqulibs[0]),len(countiesToExamine))
+    print(playerStrats)
+
+    for playerIndex in range(len(playerStrats)):
+        playerStrat = playerStrats[playerIndex]
+        countryCode = countiesToExamine[playerIndex]
+
+        for moveIndex in range(len(playerStrat)):
+            if(playerStrat[moveIndex].numerator / playerStrat[moveIndex].denominator == 1):
+                print('Country ' +  countryCode + " will removed " + str(moveIndex) + " of its satellites")
+                break
+        else:
+            print('Error Country ' +  countryCode + " not pick a strategy")        
 
     endTime = time.time()
     print(endTime - startTime)
@@ -163,10 +195,11 @@ if __name__ == "__main__":
         "./tles/parsedTles.json",
         "./noradIdByCountryCode.json",
         "./MergedCollideData.csv",
-        ["US", "PRC", "CIS", "IND", "JPN"],
+        # ["US", "PRC", "CIS", "IND", "JPN"],
+        ["US", "PRC", "CIS", "IND"],
         # ["US", "CIS", "JPN"],
         # ["US", "CIS"],
-        2,
+        3,
     )
 
 # for this dont allow IRAN, ISRA, NKOR not enough ids
