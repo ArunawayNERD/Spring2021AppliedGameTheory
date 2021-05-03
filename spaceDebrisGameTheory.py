@@ -3,6 +3,7 @@ import numpy as np
 import time
 import gambit
 import random
+import os
 
 
 def getTleApproxMass(tle):
@@ -104,47 +105,95 @@ def getIdsToRemove(countryNoradIdSet, numberToRemove, removedIds, collisionSet, 
     return [item[0] for item in removed]
 
 
+def mergeCollisionData(numOfTles, dataFolderPath, numOfYears):
+    summedData = np.empty(shape=(numOfTles, numOfTles))
+    summedData.fill(0)
+
+    #Need sort this becuse the order returned from the file system probably
+    #wont be in order. Since we are potentially onyl looking at a subset 
+    #of the data insuring the order is important 
+    paths = sorted(os.listdir(dataFolderPath))
+    
+    print("Info: Starting loading collision data")
+    for pathIndex in range(numOfYears):
+        dataPath = os.path.join(dataFolderPath, paths[pathIndex])
+
+        if os.path.isfile(dataPath):
+            yearData = np.loadtxt(dataPath, delimiter=",")
+            summedData = np.add(summedData, yearData)
+        else:
+            print("Error: Loading: " + dataPath + ' failed')
+
+    print("Info: Done loading collision data")
+
+    return summedData
+
+
 def SpaceDebrisGameTheory(
-    parsedTlePath, tleIdByCountryPath, MergedCollisionDataPath, countiesToExamine, maxNumberPossibleToRemove
+    parsedTlePath, tleIdByCountryPath, collisionDataFolder, countiesToExamine, maxNumberPossibleToRemove, costPerKilo, costToRemoveOne
 ):
 
     # Load the Data files
-    with open("./tles/parsedTles.json") as reader:
-        tleSet = json.load(reader)
-
-    with open("./noradIdByCountryCode.json") as mappingReader:
-        countryMapping = json.load(mappingReader)
-
-    collisionSet = np.loadtxt("./MergedCollideData.csv", delimiter=",")
+    try:
+        with open(parsedTlePath) as reader:
+            tleSet = json.load(reader)
+    except:
+        print('Error: File path for input field parsedTlePath is not valid. Aborting.')
+        return
+    try:
+        with open(tleIdByCountryPath) as mappingReader:
+            countryMapping = json.load(mappingReader)
+    except:
+        print('Error: File path for input field tleIdByCountryPath is not valid. Aborting.')
+        return
 
     tleKeys = list(tleSet.keys())
+    numTles = len(tleKeys)
+    
+    collisionSet = mergeCollisionData(numTles, collisionDataFolder, 20)
+    #Leaving this here for testing or if a user wants to pre compute the merged data
+    # collisionSet = np.loadtxt("./MergedCollideData.csv", delimiter=",")
+    print("Info: Done loading all setup data")
+    
 
     # Get the mass approximates now since that will be constant
+    print("Info: Starting mass approximation calculations")
     massApproxByTle = {noradId: getTleApproxMass(tleSet[noradId]) for noradId in tleKeys}
+    print("Info: Done mass approximation calculations")
 
-    # Get the removal combos to try
-    totalCombos = (maxNumberPossibleToRemove + 1) ** len(countiesToExamine)  # +1 because 0 is valid
+    numCountries= len(countiesToExamine)
+
+
+    print("Info: Starting to determine all player action combos")
+    # Get the removal combos to examine
+    totalCombos = (maxNumberPossibleToRemove + 1) ** numCountries  # +1 because 0 is valid
 
     combos = []
     for i in range(totalCombos):
-        comboString = np.base_repr(i, base=maxNumberPossibleToRemove + 1, padding=len(countiesToExamine))
-        combos.append(comboString[-1 * len(countiesToExamine) :])
+        #Counting in this base will actually produce all of the combinations we need to examine
+        comboString = np.base_repr(i, base=maxNumberPossibleToRemove + 1, padding=numCountries)
+        combos.append(comboString[-1 * numCountries :])
+    print("Info: Done determining all player action combos")
 
-    startTime = time.time()
-
-    game = gambit.Game.new_table([maxNumberPossibleToRemove + 1] * len(countiesToExamine))
+    
+    print("Info: Setting up gambit game")
+    #Set up the empty gambit game representation
+    game = gambit.Game.new_table([maxNumberPossibleToRemove + 1] * numCountries)
 
     # Name the players in our game to the country codes
-    for i in range(len(countiesToExamine)):
+    for i in range(numCountries):
         game.players[i].label = countiesToExamine[i]
+    print("Info: Done setting up gambit game")
 
-    #Now lets loop through all the move combos and add the untility values to the game
-    value = 0
+    print("Info: Starting utility calculations (this could take a while)")
+    startTime = time.time()
+
+    #Now lets loop through all the move combos and add the utility values to the game
     for combo in combos:
         removedIds = []
 
         numberToRemovePerCountry = [int(i) for i in list(combo)]
-        print(numberToRemovePerCountry)
+        # print(numberToRemovePerCountry)
 
         for countryIndex in range(len(numberToRemovePerCountry)):
             countryCode = countiesToExamine[countryIndex]
@@ -152,28 +201,29 @@ def SpaceDebrisGameTheory(
             # print(numToRemove)
             countrysIds = countryMapping[countryCode]
 
-            # removed = getIdsToRemove(
-            #     countrysIds, numToRemove, removedIds, collisionSet, tleKeys, tleSet, massApproxByTle
-            # )
-            removed = []
+            removed = getIdsToRemove(
+                countrysIds, numToRemove, removedIds, collisionSet, tleKeys, tleSet, massApproxByTle
+            )
+            # removed = []
             removedIds.extend(removed)
 
         # Now that we have determined the ids to removed lets calclate the actual utilities
         for countryIndex in range(len(numberToRemovePerCountry)):
-        # for countryCode in countiesToExamine:
+            numToRemove = numberToRemovePerCountry[countryIndex]
             countrysIds = countryMapping[countiesToExamine[countryIndex]]
-            # utility = calculateUtility(countrysIds, removedIds, collisionSet, tleKeys, tleSet, massApproxByTle, 1)
-            game[numberToRemovePerCountry][countryIndex] = value
-            value = value +1
-            utility = 1
-            # print(utility)
-
+            utility = calculateUtility(countrysIds, removedIds, collisionSet, tleKeys, tleSet, massApproxByTle, costPerKilo)
+            
+            #Subtract the costs for removing sats
+            utility = utility + numToRemove * costToRemoveOne
+            
+            game[numberToRemovePerCountry][countryIndex] = int(utility)
+    print("Info: Done utility calculations")
     
     nashEqulibs = gambit.nash.enumpure_solve(game)
-    print(len(nashEqulibs[0]))
-    playerStrats = np.array_split(np.array(nashEqulibs[0]),len(countiesToExamine))
-    print(playerStrats)
+    
+    playerStrats = np.array_split(np.array(nashEqulibs[0]),numCountries)
 
+    print('------Result------')
     for playerIndex in range(len(playerStrats)):
         playerStrat = playerStrats[playerIndex]
         countryCode = countiesToExamine[playerIndex]
@@ -190,16 +240,74 @@ def SpaceDebrisGameTheory(
 
 
 if __name__ == "__main__":
-    # Options PRC, IND, IRAN, ISRA, JPN, CIS, NKOR, SKOR, US, ESA
-    SpaceDebrisGameTheory(
-        "./tles/parsedTles.json",
-        "./noradIdByCountryCode.json",
-        "./MergedCollideData.csv",
-        # ["US", "PRC", "CIS", "IND", "JPN"],
-        ["US", "PRC", "CIS", "IND"],
-        # ["US", "CIS", "JPN"],
-        # ["US", "CIS"],
-        3,
-    )
+    # The valid options are PRC, IND, IRAN, ISRA, JPN, CIS, NKOR, SKOR, US, ESA
+    # but for this we wont actually allow IRAN, ISRA, NKOR because they dont have 
+    # enough ids compared to the others
+    validOptions = ['PRC', 'IND', 'JPN', 'CIS', 'SKOR', 'US', 'ESA']
 
-# for this dont allow IRAN, ISRA, NKOR not enough ids
+    inputData = {}
+    try:
+        with open("./runSettings.json") as reader:
+            inputData = json.load(reader)
+    except:
+        print("Warn: No ./runSettings.json file found. Default values will be used")
+
+    #Now that we have the inputs lets validate them
+
+    #Standardize the the input costs. People might naturally put positive numbers in for the costs
+    #This will result in positive utility values. however gambit tries to maximize the utility so
+    #it will actually use negative numbers for the costs (which also kinda makes sense if you think about it)
+    #To make sure we are using negatives we will abs() the input and then multiple  by -1
+    inputCostPerKilo = -1 * abs(inputData.get("costPerKilo",-0.15))
+    inputCostToRemoveOne = -1 * abs(inputData.get("costToRemoveOne",-52000000))
+    
+    #Make sure they entered a positive number
+    inputMaxNumber = inputData.get("maxNumberToRemove",3)
+    if inputMaxNumber <= 0:
+        print("Warn: Entered max number to remove was less then 1. Defaulting to 1")
+        inputMaxNumber = 1
+
+    if inputMaxNumber > 5:
+       print("Warn: Entered max number is greater then 5. Run times might be significant") 
+
+    #Lets make sure the supplied file paths exist
+    inputParsedTlePath = inputData.get("parsedTlePath","./tles/parsedTles.json")
+    if not os.path.exists(inputParsedTlePath):
+        print('Warn:File supplied for field parsedTlePath does not exist. Falling back to default')
+        inputParsedTlePath = "./tles/parsedTles.json"
+
+    inputTleIdByCountryPath = inputData.get("tleIdByCountryPath","./noradIdByCountryCode.json")
+    if not os.path.exists(inputTleIdByCountryPath):
+        print('Warn:File supplied for field tleIdByCountryPath does not exist. Falling back to default')
+        inputTleIdByCountryPath = "./noradIdByCountryCode.json"
+
+    inputCollisionDataFolder = inputData.get("collisionDataFolder","perYearData")
+    if not os.path.exists(inputCollisionDataFolder):
+        print('Warn:File supplied for field collisionDataFolder does not exist. Falling back to default')
+        inputCollisionDataFolder = "perYearData"
+
+    #Make sure the supplied codes are valid
+    inputCountryCodes = inputData.get("countiesToExamine",["US", "CIS", "JPN"])
+    # Alt test sets left in for testing
+    # ["US", "PRC", "CIS", "IND", "JPN"],
+    # ["US", "PRC", "CIS", "IND"],
+
+    #For this one we will error out and tell the user to fix it because the players is kinda 
+    #a critical part of game theory....
+    for code in inputCountryCodes:
+        if code not in validOptions:
+            print('Error: Country code \'' + code + '\' is not a valid option. Aborting\n'+
+                'Valid options are ' + str(validOptions) + '\nAborting')
+            break
+    else:        
+        SpaceDebrisGameTheory(
+            inputData.get("parsedTlePath","./tles/parsedTles.json"),
+            inputData.get("tleIdByCountryPath","./noradIdByCountryCode.json"),
+            inputData.get("collisionDataFolder","perYearData"),
+            inputCountryCodes,
+            inputMaxNumber,
+            inputCostPerKilo,
+            inputCostToRemoveOne
+        )
+
+
