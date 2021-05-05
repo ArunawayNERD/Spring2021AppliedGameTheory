@@ -31,7 +31,7 @@ After the set up in the previous section has been carried out you can now start 
 - maxNumberToRemove - The max number of objects a player could remove (Default: 3)
 - parsedTlePath - The file location of the parsed tle data (Default: ./tles/parsedTles.json)
 - tleIdByCountryPath - The file location to the json file mapping country ids to tle ids (Default: ./noradIdByCountryCode.json)
-- collisionDataFolder - The path to the folder that containers the generated yearly potential collision data (Default: perYearData)
+- collisionDataFolder - The path to the folder that containers the generated yearly potential collision data (Default: perYearData50KeepOut)
 - yearsToExamine - How many years into the future should the game examine (Default: 25)
 - countiesToExamine - The set of country codes to use as players in the game (Default: ["US", "PRC", "JPN"])
     - Options ['PRC', 'IND', 'JPN', 'CIS', 'SKOR', 'US', 'ESA'] 

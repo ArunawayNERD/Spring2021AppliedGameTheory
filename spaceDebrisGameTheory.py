@@ -288,10 +288,10 @@ if __name__ == "__main__":
         inputTleIdByCountryPath = "./noradIdByCountryCode.json"
 
     #perYearData50KeepOut
-    inputCollisionDataFolder = inputData.get("collisionDataFolder","perYearData")
+    inputCollisionDataFolder = inputData.get("collisionDataFolder","perYearData50KeepOut")
     if not os.path.exists(inputCollisionDataFolder):
         print('Warn:File supplied for field collisionDataFolder does not exist. Falling back to default')
-        inputCollisionDataFolder = "perYearData"
+        inputCollisionDataFolder = "perYearData50KeepOut"
 
 
     inputYearsToExamine = inputData.get("yearsToExamine", 25)
@@ -313,9 +313,9 @@ if __name__ == "__main__":
             break
     else:        
         SpaceDebrisGameTheory(
-            inputData.get("parsedTlePath","./tles/parsedTles.json"),
-            inputData.get("tleIdByCountryPath","./noradIdByCountryCode.json"),
-            inputData.get("collisionDataFolder","perYearData"),
+            inputParsedTlePath,
+            inputTleIdByCountryPath,
+            inputCollisionDataFolder,
             inputCountryCodes,
             inputMaxNumber,
             inputCostPerKilo,
