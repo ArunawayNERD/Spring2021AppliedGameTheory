@@ -4,7 +4,7 @@
     "maxNumberToRemove" : 3,
     "parsedTlePath" : "./tles/parsedTles.json",
     "tleIdByCountryPath": "./noradIdByCountryCode.json",
-    "collisionDataFolder": "perYearData",
+    "collisionDataFolder": "perYearData50KeepOut",
     "yearsToExamine": 25,
     "countiesToExamine": ["US", "PRC", "JPN"] 
 }

@@ -20,7 +20,7 @@ def getTleApproxMass(tle):
 
     return abs(massApprox)
 
-
+# Future work: This and getIdsToRemove could probably be made into one function. they are very similar 
 def calculateUtility(countryNoradIdSet, removedIds, collisionSet, tleKeys, tleSet, massApproxByTle, costPerKilo):
     numberOfTles = len(tleKeys)
     idAndMassApprox = []
@@ -62,7 +62,7 @@ def calculateUtility(countryNoradIdSet, removedIds, collisionSet, tleKeys, tleSe
     cost = sum([item[1] * costPerKilo for item in idAndMassApprox])
     return cost
 
-
+# Future work: This and calculateUtility could probably be made into one function. they are very similar 
 def getIdsToRemove(countryNoradIdSet, numberToRemove, removedIds, collisionSet, tleKeys, tleSet, massApproxByTle):
     numberOfTles = len(tleKeys)
     idAndMassApprox = []
@@ -193,18 +193,15 @@ def SpaceDebrisGameTheory(
         removedIds = []
 
         numberToRemovePerCountry = [int(i) for i in list(combo)]
-        # print(numberToRemovePerCountry)
 
         for countryIndex in range(len(numberToRemovePerCountry)):
             countryCode = countiesToExamine[countryIndex]
             numToRemove = numberToRemovePerCountry[countryIndex]
-            # print(numToRemove)
             countrysIds = countryMapping[countryCode]
 
             removed = getIdsToRemove(
                 countrysIds, numToRemove, removedIds, collisionSet, tleKeys, tleSet, massApproxByTle
             )
-            # removed = []
             removedIds.extend(removed)
 
         # Now that we have determined the ids to removed lets calclate the actual utilities
@@ -213,7 +210,7 @@ def SpaceDebrisGameTheory(
             countrysIds = countryMapping[countiesToExamine[countryIndex]]
             utility = calculateUtility(countrysIds, removedIds, collisionSet, tleKeys, tleSet, massApproxByTle, costPerKilo)
             
-            #Subtract the costs for removing sats
+            #Subtract the costs for removing the objects
             utility = utility + numToRemove * costToRemoveOne
             
             game[numberToRemovePerCountry][countryIndex] = int(utility)
@@ -237,7 +234,7 @@ def SpaceDebrisGameTheory(
 
             for moveIndex in range(len(playerStrat)):
                 if(playerStrat[moveIndex].numerator / playerStrat[moveIndex].denominator == 1):
-                    print('Country ' +  countryCode + " will removed " + str(moveIndex) + " of its satellites")
+                    print('Country ' +  countryCode + " will removed " + str(moveIndex) + " of its objects")
                     break
             else:
                 print('Error Country ' +  countryCode + " not pick a strategy")        

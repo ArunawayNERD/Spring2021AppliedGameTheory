@@ -84,6 +84,6 @@ if __name__ == "__main__":
     if not os.path.exists(dataFolderPath):
         os.makedirs(dataFolderPath)
 
-    for year in range(2021, 2131):
+    for year in range(2021, 2122):
         genOneYear(tleKeys, year, keepOutArea, dataFolderPath)
 
