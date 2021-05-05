@@ -115,7 +115,7 @@ def mergeCollisionData(numOfTles, dataFolderPath, numOfYears):
     paths = sorted(os.listdir(dataFolderPath))
     
     print("Info: Starting loading collision data")
-    for pathIndex in range(numOfYears):
+    for pathIndex in range(min(numOfYears, len(paths))):
         dataPath = os.path.join(dataFolderPath, paths[pathIndex])
 
         if os.path.isfile(dataPath):
@@ -130,7 +130,7 @@ def mergeCollisionData(numOfTles, dataFolderPath, numOfYears):
 
 
 def SpaceDebrisGameTheory(
-    parsedTlePath, tleIdByCountryPath, collisionDataFolder, countiesToExamine, maxNumberPossibleToRemove, costPerKilo, costToRemoveOne
+    parsedTlePath, tleIdByCountryPath, collisionDataFolder, countiesToExamine, maxNumberPossibleToRemove, costPerKilo, costToRemoveOne, yearsToExamine
 ):
 
     # Load the Data files
@@ -150,7 +150,7 @@ def SpaceDebrisGameTheory(
     tleKeys = list(tleSet.keys())
     numTles = len(tleKeys)
     
-    collisionSet = mergeCollisionData(numTles, collisionDataFolder, 20)
+    collisionSet = mergeCollisionData(numTles, collisionDataFolder, yearsToExamine)
     #Leaving this here for testing or if a user wants to pre compute the merged data
     # collisionSet = np.loadtxt("./MergedCollideData.csv", delimiter=",")
     print("Info: Done loading all setup data")
@@ -221,22 +221,28 @@ def SpaceDebrisGameTheory(
     
     nashEqulibs = gambit.nash.enumpure_solve(game)
     
+    print('------Results------')
+    print('Total nash equilibrium: ' + str(len(nashEqulibs)))
     playerStrats = np.array_split(np.array(nashEqulibs[0]),numCountries)
 
-    print('------Result------')
-    for playerIndex in range(len(playerStrats)):
-        playerStrat = playerStrats[playerIndex]
-        countryCode = countiesToExamine[playerIndex]
+    for equilibriumIndex in range(len(nashEqulibs)):
+        if len(nashEqulibs) > 1:
+            print("Nash equilibrium" + str(equilibriumIndex))
 
-        for moveIndex in range(len(playerStrat)):
-            if(playerStrat[moveIndex].numerator / playerStrat[moveIndex].denominator == 1):
-                print('Country ' +  countryCode + " will removed " + str(moveIndex) + " of its satellites")
-                break
-        else:
-            print('Error Country ' +  countryCode + " not pick a strategy")        
+        playerStrats = np.array_split(np.array(nashEqulibs[0]),numCountries)
+    
+        for playerIndex in range(len(playerStrats)):
+            playerStrat = playerStrats[playerIndex]
+            countryCode = countiesToExamine[playerIndex]
+
+            for moveIndex in range(len(playerStrat)):
+                if(playerStrat[moveIndex].numerator / playerStrat[moveIndex].denominator == 1):
+                    print('Country ' +  countryCode + " will removed " + str(moveIndex) + " of its satellites")
+                    break
+            else:
+                print('Error Country ' +  countryCode + " not pick a strategy")        
 
     endTime = time.time()
-    print(endTime - startTime)
 
 
 if __name__ == "__main__":
@@ -258,7 +264,7 @@ if __name__ == "__main__":
     #This will result in positive utility values. however gambit tries to maximize the utility so
     #it will actually use negative numbers for the costs (which also kinda makes sense if you think about it)
     #To make sure we are using negatives we will abs() the input and then multiple  by -1
-    inputCostPerKilo = -1 * abs(inputData.get("costPerKilo",-0.15))
+    inputCostPerKilo = -1 * abs(inputData.get("costPerKilo",-0.1))
     inputCostToRemoveOne = -1 * abs(inputData.get("costToRemoveOne",-52000000))
     
     #Make sure they entered a positive number
@@ -281,13 +287,19 @@ if __name__ == "__main__":
         print('Warn:File supplied for field tleIdByCountryPath does not exist. Falling back to default')
         inputTleIdByCountryPath = "./noradIdByCountryCode.json"
 
+    #perYearData50KeepOut
     inputCollisionDataFolder = inputData.get("collisionDataFolder","perYearData")
     if not os.path.exists(inputCollisionDataFolder):
         print('Warn:File supplied for field collisionDataFolder does not exist. Falling back to default')
         inputCollisionDataFolder = "perYearData"
 
+
+    inputYearsToExamine = inputData.get("yearsToExamine", 25)
+    if inputYearsToExamine < 1:
+        print("Warn: Years to examine cannot be less than 1. Defaulting to 1")
+
     #Make sure the supplied codes are valid
-    inputCountryCodes = inputData.get("countiesToExamine",["US", "CIS", "JPN"])
+    inputCountryCodes = inputData.get("countiesToExamine",["US", "PRC", "JPN"])
     # Alt test sets left in for testing
     # ["US", "PRC", "CIS", "IND", "JPN"],
     # ["US", "PRC", "CIS", "IND"],
@@ -307,7 +319,8 @@ if __name__ == "__main__":
             inputCountryCodes,
             inputMaxNumber,
             inputCostPerKilo,
-            inputCostToRemoveOne
+            inputCostToRemoveOne,
+            inputYearsToExamine
         )
 
 

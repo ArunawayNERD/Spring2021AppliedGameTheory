@@ -1,0 +1,10 @@
+{
+    "costPerKilo" :-0.1,
+    "costToRemoveOne" : -52000000,
+    "maxNumberToRemove" : 3,
+    "parsedTlePath" : "./tles/parsedTles.json",
+    "tleIdByCountryPath": "./noradIdByCountryCode.json",
+    "collisionDataFolder": "perYearData",
+    "yearsToExamine": 25,
+    "countiesToExamine": ["US", "PRC", "JPN"] 
+}

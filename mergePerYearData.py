@@ -2,6 +2,10 @@ import os
 import numpy as np
 import json
 
+#Note: This functionality has been merged into the run logic of spaceDebrisGameTheory.py to allow for 
+#easier exploring of different time frames. I have left this in though since there could still be some
+#utility to having seprate (such as you want to stay with the same )
+
 if __name__ == "__main__":
     with open("./tles/parsedTles.json") as reader:
         tleSet = json.load(reader)
